@@ -1,7 +1,54 @@
+# Virtual environments
 venv/
-.env
-__pycache__/
-logs/
-*.pyc 
-config.py
 .venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables / secrets
+.env
+config.py
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Logs
+logs/
+*.log
+
+# VS Code
+.vscode/
+
+# Temporary files
+tempCodeRunnerFile.py
+
+# Ruff
+.ruff_cache/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# PyCharm
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
