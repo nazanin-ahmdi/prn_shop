@@ -11,15 +11,15 @@ from DQL import *
 from DML import *
 from catalog_images.catalog_images import get_product_image, get_category_image
 
-PROXY_TOKEN = os.getenv("PROXY_TOKEN")
+#PROXY_TOKEN = os.getenv("PROXY_TOKEN")
 
-if PROXY_TOKEN:
-    setup_proxy(
-        proxy_token=PROXY_TOKEN,
-        hosts=["api.telegram.org"]
-    )
-else:
-    print("WARNING: PROXY_TOKEN not found. Direct Telegram connection will be used.")
+#if PROXY_TOKEN:
+ #   setup_proxy(
+  #      proxy_token=PROXY_TOKEN,
+   #     hosts=["api.telegram.org"]
+    #)
+#else:
+ #   print("WARNING: PROXY_TOKEN not found. Direct Telegram connection will be used.")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
