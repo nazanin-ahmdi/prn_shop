@@ -5,7 +5,7 @@ from pathlib import Path
 import telebot
 from telebot import types
 from telebot.types import (ReplyKeyboardMarkup,KeyboardButton,InlineKeyboardMarkup,InlineKeyboardButton,)
-from requests_forwarder import setup_proxy
+#from requests_forwarder import setup_proxy
 from config import BOT_TOKEN, ADMIN_ID
 from DQL import *
 from DML import *
