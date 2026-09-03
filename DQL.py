@@ -2,7 +2,6 @@ from config import get_connection
 def get_user_by_telegram_id(telegram_id):
 
     conn = get_connection()
-
     cur = conn.cursor(dictionary=True)
 
     sql = """
@@ -10,19 +9,13 @@ def get_user_by_telegram_id(telegram_id):
     FROM users
     WHERE telegram_id=%s
     """
-
     cur.execute(sql, (telegram_id,))
-
     result = cur.fetchone()
 
     cur.close()
     conn.close()
-
     return result
 
-# ==========================
-# Categories
-# ==========================
 
 def get_categories():
 
@@ -30,20 +23,13 @@ def get_categories():
     cur = conn.cursor(dictionary=True)
 
     sql = "SELECT * FROM categories"
-
     cur.execute(sql)
-
     result = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return result
 
-
-# ==========================
-# Products
-# ==========================
 
 def get_products():
 
@@ -54,14 +40,11 @@ def get_products():
     SELECT *
     FROM products
     """
-
     cur.execute(sql)
-
     result = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return result
 
 
@@ -77,12 +60,10 @@ def get_product_by_id(product_id):
     """
 
     cur.execute(sql, (product_id,))
-
     result = cur.fetchone()
 
     cur.close()
     conn.close()
-
     return result
 
 
@@ -101,13 +82,12 @@ def get_products_by_category(category_title):
     """
 
     cur.execute(sql, (category_title,))
-
     products = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return products
+
 def get_product_by_name(product_name):
 
     conn = get_connection()
@@ -120,18 +100,11 @@ def get_product_by_name(product_name):
     """
 
     cur.execute(sql, (product_name,))
-
     product = cur.fetchone()
 
     cur.close()
     conn.close()
-
     return product
-
-
-# ==========================
-# Users
-# ==========================
 
 def get_users():
 
@@ -139,20 +112,13 @@ def get_users():
     cur = conn.cursor(dictionary=True)
 
     sql = "SELECT * FROM users"
-
     cur.execute(sql)
 
     result = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return result
-
-
-# ==========================
-# Orders
-# ==========================
 
 def get_orders():
 
@@ -165,12 +131,10 @@ def get_orders():
     """
 
     cur.execute(sql)
-
     result = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return result
 
 def get_order_items(order_id):
@@ -194,16 +158,11 @@ def get_order_items(order_id):
     """
 
     cur.execute(sql, (order_id,))
-
     items = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return items
-# ==========================
-# Cart
-# ==========================
 
 def get_cart(user_id):
 
@@ -223,12 +182,10 @@ def get_cart(user_id):
     """
 
     cur.execute(sql, (user_id,))
-
     result = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return result
 
 def get_cart_items(user_id):
@@ -253,12 +210,10 @@ def get_cart_items(user_id):
     """
 
     cur.execute(sql, (user_id,))
-
     items = cur.fetchall()
 
     cur.close()
     conn.close()
-
     return items
 
 def get_cart_item(cart_id):
@@ -283,17 +238,12 @@ def get_cart_item(cart_id):
     """
 
     cur.execute(sql, (cart_id,))
-
     item = cur.fetchone()
 
     cur.close()
     conn.close()
-
     return item
 
-#======================
-#balance
-#======================
 def get_wallet_balance(user_id):
 
     conn = get_connection()
@@ -306,7 +256,6 @@ def get_wallet_balance(user_id):
     """
 
     cur.execute(sql, (user_id,))
-
     wallet = cur.fetchone()
 
     cur.close()

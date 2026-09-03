@@ -1,12 +1,9 @@
 from config import get_connection
 
-
 def register_user(message):
 
     user = message.from_user
-
     conn = get_connection()
-
     cur = conn.cursor()
 
     sql = """
@@ -35,17 +32,10 @@ def register_user(message):
     )
 
     cur.execute(sql, data)
-
     conn.commit()
 
     cur.close()
     conn.close()
-
-
-
-# ==========================
-# Categories
-# ==========================
 
 def insert_category(title, parent_id=None):
     conn = get_connection()
@@ -60,14 +50,8 @@ def insert_category(title, parent_id=None):
     conn.commit()
 
     print("Category Added.")
-
     cur.close()
     conn.close()
-
-
-# ==========================
-# Products
-# ==========================
 
 def insert_product(product_code,
                    category_id,
@@ -108,18 +92,12 @@ def insert_product(product_code,
     )
 
     cur.execute(sql, data)
-
     conn.commit()
 
     print("Product Added.")
 
     cur.close()
     conn.close()
-
-
-# ==========================
-# Users
-# ==========================
 
 def insert_user(
         telegram_id,
@@ -148,7 +126,6 @@ def insert_user(
         %s,%s,%s,%s,%s,%s
     )
     """
-
     data = (
         telegram_id,
         first_name,
@@ -159,18 +136,12 @@ def insert_user(
     )
 
     cur.execute(sql, data)
-
     conn.commit()
 
     print("User Added.")
 
     cur.close()
     conn.close()
-
-
-# ==========================
-# Orders
-# ==========================
 
 def insert_order(
         order_number,
@@ -209,20 +180,15 @@ def insert_order(
     )
 
     cur.execute(sql, data)
-
     conn.commit()
 
     order_id = cur.lastrowid
-
     print("Order Added:", order_id)
 
     cur.close()
     conn.close()
 
     return order_id
-# ==========================
-# Order Items
-# ==========================
 
 def insert_order_item(
         order_id,
@@ -256,18 +222,12 @@ def insert_order_item(
     )
 
     cur.execute(sql, data)
-
     conn.commit()
-
     print("Order Item Added.")
 
     cur.close()
     conn.close()
 
-
-# ==========================
-# Cart
-# ==========================
 
 def insert_cart(user_id,
                 product_id,
@@ -291,9 +251,7 @@ def insert_cart(user_id,
     """
 
     cur.execute(sql, (user_id, product_id, quantity))
-
     conn.commit()
-
     print("Added To Cart.")
 
     cur.close()
@@ -304,15 +262,12 @@ def add_to_cart(user_id, product_id):
     conn = get_connection()
     cur = conn.cursor()
 
-    # Check if product already exists in user's cart
     sql_check = """
     SELECT id, quantity
     FROM cart
     WHERE user_id = %s AND product_id = %s
     """
-
     cur.execute(sql_check, (user_id, product_id))
-
     existing_item = cur.fetchone()
 
     if existing_item:
@@ -348,9 +303,6 @@ def add_to_cart(user_id, product_id):
 
     cur.close()
     conn.close()
-# ==========================
-# Stock Notification
-# ==========================
 
 def insert_stock_notification(
         user_id,
@@ -373,7 +325,6 @@ def insert_stock_notification(
     """
 
     cur.execute(sql, (user_id, product_id))
-
     conn.commit()
 
     print("Notification Saved.")
@@ -393,7 +344,6 @@ def update_cart_quantity(cart_id, quantity):
     """
 
     cur.execute(sql, (quantity, cart_id))
-
     conn.commit()
 
     cur.close()
@@ -412,7 +362,6 @@ def remove_from_cart(cart_id):
     cur.execute(sql, (cart_id,))
 
     conn.commit()
-
     cur.close()
     conn.close()
 
@@ -439,8 +388,8 @@ def decrease_product_stock(product_id, quantity):
 
     cur.close()
     conn.close()
-
     return affected_rows
+
 def add_existing_product_to_cart(user_id, product_id, quantity):
 
     conn = get_connection()
@@ -497,7 +446,6 @@ def add_existing_product_to_cart(user_id, product_id, quantity):
         )
 
     conn.commit()
-
     cur.close()
     conn.close()
 
@@ -525,7 +473,6 @@ def create_wallet(user_id):
     )
 
     conn.commit()
-
     cur.close()
     conn.close()
 
@@ -546,10 +493,8 @@ def increase_wallet_balance(user_id, amount):
     )
 
     conn.commit()
-
     cur.close()
     conn.close()
-
 
 def add_credit(user_id, amount):
 
@@ -569,9 +514,9 @@ def add_credit(user_id, amount):
     )
 
     conn.commit()
-
     cur.close()
     conn.close()
+
 def deduct_credit(user_id, amount):
 
     conn = get_connection()
@@ -595,7 +540,6 @@ def deduct_credit(user_id, amount):
     print("ROWS UPDATED:", cur.rowcount)
 
     conn.commit()
-
     affected_rows = cur.rowcount
 
     cur.close()
@@ -621,7 +565,6 @@ def decrease_stock(product_id):
     )
 
     conn.commit()
-
     affected_rows = cur.rowcount
 
     cur.close()
