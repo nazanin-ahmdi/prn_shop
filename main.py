@@ -1914,4 +1914,10 @@ def help_command(message):
         reply_markup=main_menu()
     )
 
-bot.infinity_polling()
+bot.infinity_polling(
+    non_stop=True,
+    skip_pending=True,
+    interval=0,
+    timeout=20,
+    long_polling_timeout=20
+)
