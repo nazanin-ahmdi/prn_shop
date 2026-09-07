@@ -244,24 +244,25 @@ def get_cart_item(cart_id):
     conn.close()
     return item
 
-def get_wallet_balance(user_id):
+def get_wallets_balance(user_id):
 
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
 
     sql = """
     SELECT balance
-    FROM wallet
+    FROM wallets
+
     WHERE user_id = %s
     """
 
     cur.execute(sql, (user_id,))
-    wallet = cur.fetchone()
+    wallets = cur.fetchone()
 
     cur.close()
     conn.close()
 
-    if wallet is None:
+    if wallets is None:
         return 0
 
-    return wallet["balance"]
+    return wallets["balance"]
