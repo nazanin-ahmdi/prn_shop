@@ -232,7 +232,7 @@ def start(message):
     if anti_spam_message(message):
         return
 
-    print("دستور شروع اجرا شد")
+    print("Robot Started finallyyyy!")
 
     user = get_user_by_telegram_id(
         message.from_user.id
@@ -1913,7 +1913,5 @@ def help_command(message):
         text,
         reply_markup=main_menu()
     )
-
-print("Finally started!")
 
 bot.infinity_polling()
