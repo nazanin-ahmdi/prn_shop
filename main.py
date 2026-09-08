@@ -667,36 +667,43 @@ def category_selected(message):
         "یک محصول را انتخاب کنید.",
         reply_markup=markup
     )
-@bot.message_handler(func=lambda message: get_product_by_name(message.text) is not None)
+@bot.message_handler(func=lambda message: get_product_by_name(message.text) is not None) 
 def product_selected(message):
-
     if anti_spam_message(message):
-        return
+         return
 
     product = get_product_by_name(message.text)
 
-   
+    if product is None:
+         bot.send_message(
+              message.chat.id,
+              "❌ محصول پیدا نشد."
+        )
+         return
 
+    name = product.get("name", "نامشخص")
+    product_code = product.get("product_code", "نامشخص")
+    price = product.get("price", 0)
+    stock = product.get("stock", 0)
+    description = product.get("description")
 
-    text = f"""
-📦 نام محصول: {product['name']}
+    if description is None or str(description).strip() == "":
+         description = "توضیحی برای این محصول ثبت نشده است."
 
-🔖 کد محصول: {product['product_code']}
-
-💰 قیمت: {product['price']}
-
-📦 موجودی: {product['stock']}
-
-📝 توضیحات:
-
-{product['description']}
-"""
+    text = (
+        f"📦 نام محصول: {name}\n\n"
+        f"🔖 کد محصول: {product_code}\n\n"
+        f"💰 قیمت: {price}\n\n"
+        f"📊 موجودی: {stock}\n\n"
+        f"📝 توضیحات:\n"
+        f"{description}"
+)
 
     bot.send_message(
-    message.chat.id,
-    text,
-    reply_markup=product_inline_keyboard(product["id"])
-    )
+        message.chat.id,
+        text,
+        reply_markup=product_inline_keyboard(product["id"])
+)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_"))
 def add_product_to_cart(call):
 
