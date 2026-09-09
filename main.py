@@ -1,15 +1,26 @@
 import os
+import re
 import time
 from collections import defaultdict, deque
 from pathlib import Path
 import telebot
 from telebot import types
 from telebot.types import (ReplyKeyboardMarkup,KeyboardButton,InlineKeyboardMarkup,InlineKeyboardButton,)
-
+from requests_forwarder import setup_proxy
 from config import BOT_TOKEN, ADMIN_ID
 from DQL import *
 from DML import *
 from catalog_images.catalog_images import get_product_image, get_category_image
+
+PROXY_TOKEN = os.getenv("PROXY_TOKEN")
+
+if PROXY_TOKEN:
+    setup_proxy(
+        proxy_token=PROXY_TOKEN,
+        hosts=["api.telegram.org"]
+    )
+else:
+    print("WARNING: PROXY_TOKEN not found. Direct Telegram connection will be used.")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -298,7 +309,7 @@ def send_cart(chat_id, user_id):
         text = (
             f"📦 {item['name']}\n"
             f"🔖 کد: {item['product_code']}\n"
-            f"💰 قیمت واحد: {item['price']:,.2f}\n"
+            f"💰 قیمت واحد: {item['unit_price']:,.2f}\n"
             f"🔢 تعداد: {item['quantity']}\n"
             f"💵 جمع: {subtotal:,.2f}"
         )
@@ -352,7 +363,7 @@ def send_my_orders(chat_id, user_id):
             f"🧾 شماره سفارش: {order['order_number']}\n"
             f"📌 وضعیت: {order['status']}\n"
             f"💰 مبلغ: {order['total_price']:,.2f}\n"
-            f"📅 تاریخ: {order['created_at']}"
+            f"📅 تاریخ: {order['register_date']}"
         )
 
         keyboard = types.InlineKeyboardMarkup()
@@ -667,43 +678,36 @@ def category_selected(message):
         "یک محصول را انتخاب کنید.",
         reply_markup=markup
     )
-@bot.message_handler(func=lambda message: get_product_by_name(message.text) is not None) 
+@bot.message_handler(func=lambda message: get_product_by_name(message.text) is not None)
 def product_selected(message):
+
     if anti_spam_message(message):
-         return
+        return
 
     product = get_product_by_name(message.text)
 
-    if product is None:
-         bot.send_message(
-              message.chat.id,
-              "❌ محصول پیدا نشد."
-        )
-         return
+   
 
-    name = product.get("name", "نامشخص")
-    product_code = product.get("product_code", "نامشخص")
-    price = product.get("price", 0)
-    stock = product.get("stock", 0)
-    description = product.get("description")
 
-    if description is None or str(description).strip() == "":
-         description = "توضیحی برای این محصول ثبت نشده است."
+    text = f"""
+📦 نام محصول: {product['name']}
 
-    text = (
-        f"📦 نام محصول: {name}\n\n"
-        f"🔖 کد محصول: {product_code}\n\n"
-        f"💰 قیمت: {price}\n\n"
-        f"📊 موجودی: {stock}\n\n"
-        f"📝 توضیحات:\n"
-        f"{description}"
-)
+🔖 کد محصول: {product['product_code']}
+
+💰 قیمت: {product['price']}
+
+📦 موجودی: {product['stock']}
+
+📝 توضیحات:
+
+{product['description'] or 'توضیحی ثبت نشده است.'}
+"""
 
     bot.send_message(
-        message.chat.id,
-        text,
-        reply_markup=product_inline_keyboard(product["id"])
-)
+    message.chat.id,
+    text,
+    reply_markup=product_inline_keyboard(product["id"])
+    )
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_"))
 def add_product_to_cart(call):
 
@@ -788,7 +792,7 @@ def view_cart(call):
         text = (
             f"📦 {item['name']}\n"
             f"کد: {item['product_code']}\n"
-            f"قیمت: {item['price']}\n"
+            f"قیمت: {item['unit_price']}\n"
             f"تعداد: {item['quantity']}\n"
             f"جمع جزء: {subtotal}"
         )
@@ -817,7 +821,7 @@ def refresh_cart_item(call, cart_id):
     text = (
         f"محصول: {item['name']}\n"
         f"کد: {item['product_code']}\n"
-        f"قیمت: {item['price']}\n"
+        f"قیمت: {item['unit_price']}\n"
         f"تعداد: {item['quantity']}\n"
         f"جمع جزء: {subtotal}"
     )
@@ -911,77 +915,31 @@ def decrease_cart_quantity(call):
     refresh_cart_item(call, cart_id)
 
 @bot.callback_query_handler(
-    func=lambda call: call.data.startswith("cart_dec_")
-)
-def decrease_cart_quantity(call):
-
-    cart_id = int(call.data.split("_")[2])
-    item = get_cart_item(cart_id)
-
-    if item is None:
-        bot.answer_callback_query(
-            call.id,
-            "❌ مورد موردنظر در سبد خرید پیدا نشد."
-        )
-        return
-    new_quantity = item["quantity"] - 1
-    if new_quantity <= 0:
-        remove_from_cart(cart_id)
-
-        bot.answer_callback_query(
-            call.id,
-            "✅ محصول از سبد خرید حذف شد."
-        )
-
-        bot.edit_message_text(
-            "✅ محصول از سبد خرید حذف شد.",
-            call.message.chat.id,
-            call.message.message_id
-        )
-
-        return
-    update_cart_quantity(
-        cart_id,
-        new_quantity
-    )
-    bot.answer_callback_query(
-        call.id,
-        "✅ تعداد کاهش یافت."
-    )
-
-    refresh_cart_item(call, cart_id)
-
-@bot.callback_query_handler(
     func=lambda call: call.data == "checkout"
 )
 def checkout(call):
 
     if anti_spam_callback(call):
         return
+
     user = get_user_by_telegram_id(call.from_user.id)
     if user is None:
-        bot.answer_callback_query(
-            call.id,
-            "❌ کاربر پیدا نشد."
-        )
+        bot.answer_callback_query(call.id, "❌ کاربر پیدا نشد.")
         return
+
     items = get_cart_items(user["id"])
     if not items:
-        bot.answer_callback_query(
-            call.id,
-            "🛒 سبد خرید شما خالی است."
-        )
+        bot.answer_callback_query(call.id, "🛒 سبد خرید شما خالی است.")
         return
-    total = 0
 
-    for item in items:
-        total += item["price"] * item["quantity"]
+    total = sum(item["price"] * item["quantity"] for item in items)
+
     bot.answer_callback_query(call.id)
 
     text = (
         "تأیید سفارش\n\n"
         f"تعداد اقلام: {len(items)}\n"
-        f"مجموع: {total}\n\n"
+        f"مجموع: {total:,.2f}\n\n"
         "آیا می‌خواهید این سفارش را ثبت کنید؟"
     )
 
@@ -992,7 +950,6 @@ def checkout(call):
             callback_data="confirm_order"
         )
     )
-
     keyboard.add(
         types.InlineKeyboardButton(
             "لغو",
@@ -1005,6 +962,8 @@ def checkout(call):
         text,
         reply_markup=keyboard
     )
+
+
 @bot.callback_query_handler(
     func=lambda call: call.data == "confirm_order"
 )
@@ -1012,125 +971,72 @@ def confirm_order(call):
 
     if anti_spam_callback(call):
         return
+
     user = get_user_by_telegram_id(call.from_user.id)
     if user is None:
-        bot.answer_callback_query(
-            call.id,
-            "❌ کاربر پیدا نشد."
-        )
+        bot.answer_callback_query(call.id, "❌ کاربر پیدا نشد.")
         return
-    user_id = user["id"]
 
-    # Get current cart
-    items = get_cart_items(user_id)
-
-    if not items:
-
-        bot.answer_callback_query(
-            call.id,
-            "🛒 سبد خرید شما خالی است."
+    try:
+        result = checkout_cart_transaction(
+            user["id"],
+            user.get("address") or "",
+            "خرید از سبد خرید"
         )
+
+        bot.answer_callback_query(call.id, "✅ سفارش ثبت شد.")
 
         bot.send_message(
             call.message.chat.id,
-            "🛒 سبد خرید شما خالی است."
+            f"خرید با موفقیت انجام شد. ✅\n\n"
+            f"شماره سفارش: {result['order_number']}\n"
+            f"مبلغ سفارش: {result['total']:,.2f}\n"
+            f"اعتبار باقی‌مانده: {result['new_balance']:,.2f}\n\n"
+            "جزئیات سفارش در بخش «سفارش‌های من» قابل مشاهده است.",
+            reply_markup=main_menu()
         )
 
-        return
-
-    total = 0
-
-    for item in items:
-        total += item["price"] * item["quantity"]
-
-    # Check stock before creating order
-    for item in items:
-
-        if item["quantity"] > item["stock"]:
-
-            bot.answer_callback_query(
-                call.id,
-                "❌ موجودی کافی نیست."
-            )
-
-            bot.send_message(
-                call.message.chat.id,
-                f"Not enough stock for {item['name']}."
-            )
-
-            return
-
-    order_number = f"ORD-{int(time.time())}"
-
-    order_id = insert_order(
-        order_number,
-        user_id,
-        "pending",
-        total,
-        "",
-        "سفارش تلگرامی"
-    )
-    for item in items:
-
-        insert_order_item(
-            order_id,
-            item["product_id"],
-            item["quantity"],
-            item["price"]
+    except ValueError as error:
+        bot.answer_callback_query(call.id, "❌ خرید انجام نشد.")
+        bot.send_message(
+            call.message.chat.id,
+            f"❌ خرید انجام نشد.\n\n{error}"
         )
-        decrease_product_stock(
-            item["product_id"],
-            item["quantity"]
-        )
-        remove_from_cart(
-            item["cart_id"]
+    except Exception as error:
+        print("خطای checkout:", error)
+        bot.answer_callback_query(call.id, "❌ خطایی در ثبت سفارش رخ داد.")
+        bot.send_message(
+            call.message.chat.id,
+            "❌ خطایی در ثبت سفارش رخ داد. لطفاً دوباره تلاش کنید."
         )
 
-    bot.answer_callback_query(
-        call.id,
-        "✅ سفارش تأیید شد."
-    )
 
-    bot.send_message(
-        call.message.chat.id,
-        f"""
-Order successfully placed.
-
-شماره سفارش: {order_number}
-
-مجموع: {total}
-
-Thank you for your purchase.
-""",
-reply_markup=orders_keyboard()
-    )
 def get_orders_by_user(user_id):
 
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
 
-    sql = """
-    SELECT
-        id,
-        order_number,
-        status,
-        total_price,
-        address,
-        description,
-        created_at
-    FROM orders
-    WHERE user_id = %s
-    ORDER BY id DESC
-    """
+    try:
+        sql = """
+        SELECT
+            id,
+            order_number,
+            status,
+            total_price,
+            address,
+            description,
+            register_date
+        FROM orders
+        WHERE user_id = %s
+        ORDER BY id DESC
+        """
+        cur.execute(sql, (user_id,))
+        return cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
-    cur.execute(sql, (user_id,))
 
-    orders = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return orders
 @bot.callback_query_handler(
     func=lambda call: call.data == "my_orders"
 )
@@ -1170,7 +1076,7 @@ def my_orders(call):
             f"شماره سفارش: {order['order_number']}\n"
             f"وضعیت: {order['status']}\n"
             f"مجموع: {order['total_price']}\n"
-            f"تاریخ: {order['created_at']}"
+            f"تاریخ: {order['register_date']}"
         )
 
         keyboard = types.InlineKeyboardMarkup()
@@ -1226,7 +1132,7 @@ def view_order(call):
         f"Order Details\n\n"
         f"شماره سفارش: {order['order_number']}\n"
         f"وضعیت: {order['status']}\n"
-        f"تاریخ: {order['created_at']}\n\n"
+        f"تاریخ: {order['register_date']}\n\n"
         f"تعداد اقلام:\n"
     )
     for item in items:
@@ -1238,7 +1144,7 @@ def view_order(call):
             f"محصول: {item['name']}\n"
             f"کد: {item['product_code']}\n"
             f"تعداد: {item['quantity']}\n"
-            f"قیمت: {item['price']}\n"
+            f"قیمت: {item['unit_price']}\n"
             f"جمع جزء: {subtotal}\n"
         )
 
@@ -1454,7 +1360,7 @@ def show_my_credit(call):
     )
 
 @bot.callback_query_handler(
-    func=lambda call: call.data.startswith("buy_")
+    func=lambda call: bool(re.fullmatch(r"buy_\d+", call.data))
 )
 def buy_product(call):
 
@@ -1536,158 +1442,217 @@ def confirm_purchase(call):
 
     if anti_spam_callback(call):
         return
-    print(" CONFIRM PURCHASE ")
-    bot.answer_callback_query(call.id)
+
     try:
-
         product_id = int(call.data.split("_")[2])
-
-        print("شناسه محصول:", product_id)
-
-        product = get_product_by_id(product_id)
-
-        if product is None:
-
-            bot.send_message(
-                call.message.chat.id,
-                "❌ محصول پیدا نشد."
-            )
-
-            return
-
-        product_name = product["name"]
-        price = float(product["price"])
-        stock = int(product["stock"])
-
-        print("محصول:", product_name)
-        print("قیمت:", price)
-        print("موجودی:", stock)
-
-        # Check stock again
-        if stock <= 0:
-
-            bot.send_message(
-                call.message.chat.id,
-                "❌ متأسفانه این محصول موجود نیست."
-            )
-
-            return
-
-        telegram_id = call.from_user.id
-        user = get_user_by_telegram_id(telegram_id)
+        user = get_user_by_telegram_id(call.from_user.id)
 
         if user is None:
-
-            bot.send_message(
-                call.message.chat.id,
-                "❌ کاربر پیدا نشد."
-            )
-
+            bot.answer_callback_query(call.id, "❌ کاربر پیدا نشد.")
             return
 
-        user_id = user["id"]
-
-        # Get current credit
-        balance = float(
-            get_wallet_balance(user_id)
-        )
-        print("شناسه کاربر:", user_id)
-        print("اعتبار فعلی:", balance)
-
-        if balance < price:
-
-            bot.send_message(
-                call.message.chat.id,
-                f"❌ اعتبار کافی نیست.\n\n"
-                f"اعتبار شما: {balance:.2f}\n"
-                f"قیمت محصول: {price:.2f}"
-            )
-
-            return
-        # Deduct credit
-        credit_updated = deduct_credit(
-            user_id,
-            price
-        )
-        if not credit_updated:
-
-            bot.send_message(
-                call.message.chat.id,
-                "❌ کسر اعتبار انجام نشد."
-            )
-
-            return
-
-        print("اعتبار کسر شد")
-
-        # Create an order for the direct purchase
-        order_number = f"ORD-{int(time.time())}"
-
-        order_id = insert_order(
-            order_number,
-            user_id,
-            "completed",
-            price,
+        result = purchase_product(
+            user["id"],
+            product_id,
             user.get("address") or "",
             "خرید مستقیم از تلگرام"
         )
 
-        insert_order_item(
-            order_id,
-            product_id,
-            1,
-            price
-        )
-        # Decrease stock
-        stock_updated = decrease_stock(
-            product_id
-        )
-        if not stock_updated:
-
-            bot.send_message(
-                call.message.chat.id,
-                "❌ به‌روزرسانی موجودی محصول انجام نشد."
-            )
-
-            return
-        print("موجودی کاهش یافت")
-
-        new_balance = get_wallet_balance(user_id)
+        bot.answer_callback_query(call.id, "✅ خرید با موفقیت انجام شد.")
 
         bot.send_message(
             call.message.chat.id,
             f"خرید با موفقیت انجام شد. ✅\n\n"
-            f"محصول: {product_name}\n"
-            f"قیمت: {price:,.2f}\n"
-            f"شماره سفارش: {order_number}\n\n"
-            f"✅ سفارش شما با موفقیت ثبت شد.",
+            f"محصول: {result['product_name']}\n"
+            f"کد محصول: {result['product_code']}\n"
+            f"قیمت: {result['price']:,.2f}\n"
+            f"شماره سفارش: {result['order_number']}\n"
+            f"موجودی باقی‌مانده: {result['new_stock']}\n"
+            f"اعتبار باقی‌مانده: {result['new_balance']:,.2f}\n\n"
+            "سفارش شما با موفقیت ثبت شد.",
             reply_markup=main_menu()
         )
 
-        print(" PURCHASE COMPLETED ")
-
-    except Exception as e:
-
-        print("خطای خرید:", e)
-
+    except ValueError as error:
+        bot.answer_callback_query(call.id, "❌ خرید انجام نشد.")
         bot.send_message(
             call.message.chat.id,
-            f"❌ خطایی رخ داد:\n{e}"
+            f"❌ خرید انجام نشد.\n\n{error}"
         )
-        
+    except Exception as error:
+        print("خطای خرید مستقیم:", error)
+        bot.answer_callback_query(call.id, "❌ خطایی در ثبت خرید رخ داد.")
+        bot.send_message(
+            call.message.chat.id,
+            "❌ خطایی در ثبت خرید رخ داد. لطفاً دوباره تلاش کنید."
+        )
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data == "cancel_buy"
+)
 def cancel_purchase(call):
 
     if anti_spam_callback(call):
         return
 
-    print("خرید لغو شد")
+    bot.answer_callback_query(call.id, "خرید لغو شد.")
+    bot.send_message(
+        call.message.chat.id,
+        "❌ خرید لغو شد.",
+        reply_markup=main_menu()
+    )
 
+
+@bot.callback_query_handler(
+    func=lambda call: call.data == "cancel_order"
+)
+def cancel_order(call):
+
+    if anti_spam_callback(call):
+        return
+
+    bot.answer_callback_query(call.id, "سفارش لغو شد.")
+    bot.send_message(
+        call.message.chat.id,
+        "❌ ثبت سفارش لغو شد.",
+        reply_markup=main_menu()
+    )
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data == "back_categories"
+)
+def back_categories(call):
+
+    if anti_spam_callback(call):
+        return
+
+    categories = get_categories()
     bot.answer_callback_query(call.id)
+
+    if not categories:
+        bot.send_message(
+            call.message.chat.id,
+            "❌ هیچ دسته‌بندی‌ای پیدا نشد.",
+            reply_markup=main_menu()
+        )
+        return
+
+    keyboard = types.InlineKeyboardMarkup()
+    for category in categories:
+        keyboard.add(
+            types.InlineKeyboardButton(
+                category["title"],
+                callback_data=f"product_category_{category['id']}"
+            )
+        )
+
+    keyboard.add(
+        types.InlineKeyboardButton(
+            "🏠 خانه",
+            callback_data="products_home"
+        )
+    )
 
     bot.send_message(
         call.message.chat.id,
-        "❌ خرید لغو شد."
+        "📦 دسته‌بندی محصولات را انتخاب کنید:",
+        reply_markup=keyboard
     )
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("product_category_")
+)
+def product_category_callback(call):
+
+    if anti_spam_callback(call):
+        return
+
+    category_id = int(call.data.split("_")[-1])
+    categories = get_categories()
+    category = next((c for c in categories if c["id"] == category_id), None)
+
+    if category is None:
+        bot.answer_callback_query(call.id, "❌ دسته‌بندی پیدا نشد.")
+        return
+
+    products_list = get_products_by_category(category["title"])
+    bot.answer_callback_query(call.id)
+
+    if not products_list:
+        bot.send_message(
+            call.message.chat.id,
+            "❌ محصولی در این دسته‌بندی وجود ندارد.",
+            reply_markup=main_menu()
+        )
+        return
+
+    keyboard = types.InlineKeyboardMarkup()
+    for product in products_list:
+        keyboard.add(
+            types.InlineKeyboardButton(
+                product["name"],
+                callback_data=f"product_{product['id']}"
+            )
+        )
+
+    bot.send_message(
+        call.message.chat.id,
+        f"📦 محصولات دسته «{category['title']}»:",
+        reply_markup=keyboard
+    )
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("product_")
+)
+def product_callback(call):
+
+    if anti_spam_callback(call):
+        return
+
+    product_id = int(call.data.split("_")[-1])
+    product = get_product_by_id(product_id)
+
+    if product is None:
+        bot.answer_callback_query(call.id, "❌ محصول پیدا نشد.")
+        return
+
+    bot.answer_callback_query(call.id)
+
+    product_text = (
+        f"📦 نام محصول: {product['name']}\n\n"
+        f"🔖 کد محصول: {product['product_code']}\n"
+        f"💰 قیمت: {product['price']:,.2f}\n"
+        f"📦 موجودی: {product['stock']}\n\n"
+        f"📝 توضیحات:\n{product['description'] or 'توضیحی ثبت نشده است.'}"
+    )
+
+    bot.send_message(
+        call.message.chat.id,
+        product_text,
+        reply_markup=product_inline_keyboard(product_id)
+    )
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data == "products_home"
+)
+def products_home(call):
+
+    if anti_spam_callback(call):
+        return
+
+    bot.answer_callback_query(call.id)
+    bot.send_message(
+        call.message.chat.id,
+        "🏠 منوی اصلی PRN-Shop",
+        reply_markup=main_menu()
+    )
+
+
 # ADMIN PANEL
 
 def admin_panel_keyboard():
@@ -1885,16 +1850,66 @@ def catalog_command(message):
 
     catalog_menu_handler(message)
 
+@bot.message_handler(func=lambda message: message.text == "☎️ تماس با ما")
+def contact_menu_handler(message):
+
+    if anti_spam_message(message):
+        return
+
+    contact_file = Path("contact.txt")
+    if not contact_file.exists():
+        contact_file = Path("contact_info.txt")
+
+    if contact_file.exists():
+        try:
+            contact_text = contact_file.read_text(encoding="utf-8").strip()
+        except Exception as error:
+            print("خطا در خواندن فایل تماس:", error)
+            contact_text = ""
+    else:
+        contact_text = ""
+
+    if not contact_text:
+        contact_text = (
+            "برای دریافت اطلاعات تماس، فایل contact.txt یا contact_info.txt "
+            "را در ریشه پروژه قرار دهید."
+        )
+
+    bot.send_message(
+        message.chat.id,
+        "☎️ تماس با ما\n\n" + contact_text,
+        reply_markup=main_menu()
+    )
+
+
 @bot.message_handler(commands=["contact"])
 def contact_command(message):
 
     if anti_spam_message(message):
         return
 
+    contact_file = Path("contact.txt")
+    if not contact_file.exists():
+        contact_file = Path("contact_info.txt")
+
+    if contact_file.exists():
+        try:
+            contact_text = contact_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            contact_text = ""
+    else:
+        contact_text = ""
+
+    if not contact_text:
+        contact_text = (
+            "برای دریافت اطلاعات تماس، فایل contact.txt یا contact_info.txt "
+            "را در ریشه پروژه قرار دهید."
+        )
+
     bot.send_message(
         message.chat.id,
-        "☎️ تماس با ما\n\n"
-        "برای ارتباط با پشتیبانی، پیام خود را همین‌جا ارسال کنید."
+        "☎️ تماس با ما\n\n" + contact_text,
+        reply_markup=main_menu()
     )
 
 @bot.message_handler(commands=["help"])
@@ -1921,10 +1936,4 @@ def help_command(message):
         reply_markup=main_menu()
     )
 
-bot.infinity_polling(
-    non_stop=True,
-    skip_pending=True,
-    interval=0,
-    timeout=20,
-    long_polling_timeout=20
-)
+bot.infinity_polling()

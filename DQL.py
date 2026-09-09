@@ -148,7 +148,7 @@ def get_order_items(order_id):
         oi.order_id,
         oi.product_id,
         oi.quantity,
-        oi.price,
+        oi.unit_price,
         p.name,
         p.product_code
     FROM order_items oi
@@ -171,14 +171,14 @@ def get_cart(user_id):
 
     sql = """
     SELECT
-        cart.id,
-        products.name,
-        cart.quantity,
-        products.price
-    FROM cart
-    INNER JOIN products
-    ON cart.product_id = products.id
-    WHERE cart.user_id=%s
+        c.id,
+        p.name,
+        c.quantity,
+        p.price
+    FROM carts c
+    INNER JOIN products p
+    ON c.product_id = p.id
+    WHERE c.user_id=%s
     """
 
     cur.execute(sql, (user_id,))
@@ -202,11 +202,11 @@ def get_cart_items(user_id):
         p.product_code,
         p.price,
         p.stock
-    FROM cart c
+    FROM carts c
     INNER JOIN products p
         ON c.product_id = p.id
     WHERE c.user_id = %s
-    ORDER BY c.created_at DESC
+    ORDER BY c.register_date DESC
     """
 
     cur.execute(sql, (user_id,))
@@ -231,7 +231,7 @@ def get_cart_item(cart_id):
         p.product_code,
         p.price,
         p.stock
-    FROM cart c
+    FROM carts c
     INNER JOIN products p
         ON c.product_id = p.id
     WHERE c.id = %s
@@ -244,25 +244,24 @@ def get_cart_item(cart_id):
     conn.close()
     return item
 
-def get_wallets_balance(user_id):
+def get_wallet_balance(user_id):
 
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
 
     sql = """
     SELECT balance
-    FROM wallets
-
+    FROM wallet
     WHERE user_id = %s
     """
 
     cur.execute(sql, (user_id,))
-    wallets = cur.fetchone()
+    wallet = cur.fetchone()
 
     cur.close()
     conn.close()
 
-    if wallets is None:
+    if wallet is None:
         return 0
 
-    return wallets["balance"]
+    return wallet["balance"]
