@@ -194,7 +194,7 @@ def insert_order_item(
         order_id,
         product_id,
         quantity,
-        price):
+        unit_price):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -218,7 +218,7 @@ def insert_order_item(
         order_id,
         product_id,
         quantity,
-        price
+        unit_price
     )
 
     cur.execute(sql, data)
@@ -227,7 +227,6 @@ def insert_order_item(
 
     cur.close()
     conn.close()
-
 
 def insert_cart(user_id,
                 product_id,
