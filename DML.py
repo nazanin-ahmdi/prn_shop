@@ -227,7 +227,7 @@ def insert_order_item(
 
     cur.close()
     conn.close()
-
+    
 def insert_cart(user_id,
                 product_id,
                 quantity):
